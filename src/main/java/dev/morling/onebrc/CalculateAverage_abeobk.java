@@ -73,6 +73,14 @@ public class CalculateAverage_abeobk {
         short min, max;
         String key;
 
+        Stat(String k, long s, int c, short m, short mx) {
+            key = k;
+            sum = s;
+            count = c;
+            min = m;
+            max = mx;
+        }
+
         public final String toString() {
             return (min / 10.0) + "/"
                     + (Math.round(((double) sum / count)) / 10.0) + "/"
@@ -90,14 +98,13 @@ public class CalculateAverage_abeobk {
     }
 
     static class Table {
-        static final int ADDR = 0;
-        static final int WORD0 = ADDR + 8;
-        static final int TAIL = WORD0 + 8;
-        static final int SUM = TAIL + 8;
-        static final int CNT = SUM + 8;
-        static final int MIN = CNT + 4;
-        static final int MAX = MIN + 2;
-        static final int ROW_SZ = MAX + 2;
+        static final int LEN = 0;
+        static final int CNT = LEN + 4;
+        static final int SUM = CNT + 4;
+        static final int MAX = SUM + 8;
+        static final int MIN = MAX + 2;
+        static final int STR = MIN + 2;
+        static final int ROW_SZ = STR + 104;
         static final int TBL_SZ = ROW_SZ * (BUCKET_SIZE + MAX_STATIONS);
 
         final long base_addr;
@@ -105,34 +112,20 @@ public class CalculateAverage_abeobk {
         long row_addr;
 
         Table() {
-            base_addr = UNSAFE.allocateMemory(TBL_SZ);
+            // artsiomkorzun aligned address to page size (default=4096)
+            base_addr = (UNSAFE.allocateMemory(TBL_SZ + 4096) + 4095) & (~4095);
+            // base_addr = UNSAFE.allocateMemory(TBL_SZ);
             UNSAFE.setMemory(base_addr, TBL_SZ, (byte) 0);
             end_addr = base_addr + TBL_SZ;
         }
 
         final Stat getStat() {
-            int count = count();
-            if (count == 0)
+            int keylen = len();
+            if (keylen == 0)
                 return null;
-            Stat s = new Stat();
-            s.sum = sum();
-            s.min = min();
-            s.max = max();
-            s.count = count;
             byte[] sbuf = new byte[MAX_STR_LEN];
-            long addr = addr();
-            long word = UNSAFE.getLong(addr);
-            long semipos_code = getSemiPosCode(word);
-            int keylen = 0;
-            while (semipos_code == 0) {
-                keylen += 8;
-                word = UNSAFE.getLong(addr + keylen);
-                semipos_code = getSemiPosCode(word);
-            }
-            keylen += Long.numberOfTrailingZeros(semipos_code) >>> 3;
-            UNSAFE.copyMemory(null, addr, sbuf, Unsafe.ARRAY_BYTE_BASE_OFFSET, keylen);
-            s.key = new String(sbuf, 0, keylen, StandardCharsets.UTF_8);
-            return s;
+            UNSAFE.copyMemory(null, row_addr + STR, sbuf, Unsafe.ARRAY_BYTE_BASE_OFFSET, keylen);
+            return new Stat(new String(sbuf, 0, keylen, StandardCharsets.UTF_8), sum(), count(), min(), max());
         }
 
         final void setRow(int row_idx) {
@@ -147,41 +140,36 @@ public class CalculateAverage_abeobk {
             row_addr += ROW_SZ;
         }
 
-        final void put(long a, long t, short val) {
-            UNSAFE.putLong(row_addr + ADDR, a);
-            UNSAFE.putLong(row_addr + TAIL, t);
-            UNSAFE.putLong(row_addr + SUM, (long) val);
+        final void put(long a, short v, int kl) {
+            UNSAFE.putInt(row_addr + LEN, kl);
+            UNSAFE.putLong(row_addr + SUM, v);
             UNSAFE.putInt(row_addr + CNT, 1);
-            UNSAFE.putShort(row_addr + MIN, val);
-            UNSAFE.putShort(row_addr + MAX, val);
+            UNSAFE.putShort(row_addr + MIN, v);
+            UNSAFE.putShort(row_addr + MAX, v);
+            UNSAFE.copyMemory(a, row_addr + STR, kl);
         }
 
-        final void put(long a, long w0, long t, short val) {
-            put(a, t, val);
-            UNSAFE.putLong(row_addr + WORD0, w0);
-        }
-
-        final void add(short val) {
-            UNSAFE.putLong(row_addr + SUM, UNSAFE.getLong(row_addr + SUM) + val);
+        final void add(short v) {
+            UNSAFE.putLong(row_addr + SUM, UNSAFE.getLong(row_addr + SUM) + v);
             UNSAFE.putInt(row_addr + CNT, UNSAFE.getInt(row_addr + CNT) + 1);
-            if (val >= UNSAFE.getShort(row_addr + MAX)) {
-                UNSAFE.putShort(row_addr + MAX, val);
+            if (v >= UNSAFE.getShort(row_addr + MAX)) {
+                UNSAFE.putShort(row_addr + MAX, v);
             }
-            else if (val < UNSAFE.getShort(row_addr + MIN)) {
-                UNSAFE.putShort(row_addr + MIN, val);
+            else if (v < UNSAFE.getShort(row_addr + MIN)) {
+                UNSAFE.putShort(row_addr + MIN, v);
             }
         }
 
-        final long addr() {
-            return UNSAFE.getLong(row_addr + ADDR);
+        final int len() {
+            return UNSAFE.getInt(row_addr + LEN);
         }
 
-        final long word0() {
-            return UNSAFE.getLong(row_addr + WORD0);
+        final long word(int woff) {
+            return UNSAFE.getLong(row_addr + STR + woff);
         }
 
-        final long tail() {
-            return UNSAFE.getLong(row_addr + TAIL);
+        final long wordAt(long addr) {
+            return UNSAFE.getLong(addr);
         }
 
         final long sum() {
@@ -200,28 +188,39 @@ public class CalculateAverage_abeobk {
             return UNSAFE.getShort(row_addr + MAX);
         }
 
-        final boolean rowIsEmpty() {
-            return UNSAFE.getInt(row_addr + CNT) == 0;
+        final boolean crrRowEmpty() {
+            return UNSAFE.getShort(row_addr) == 0;
         }
 
-        final boolean match(long other_addr, long other_word0, long other_word1, long other_tail, int keylen) {
-            if (tail() != other_tail || word0() != other_word0)
+        // key<8
+        final boolean match(long tail) {
+            return word(0) == tail;
+        }
+
+        // key<16
+        final boolean match(long word0, long tail) {
+            long sptr = row_addr + STR;
+            return wordAt(sptr) == word0 && wordAt(sptr + 8) == tail;
+        }
+
+        // key<24
+        final boolean match(long word0, long word1, long tail) {
+            long sptr = row_addr + STR;
+            return wordAt(sptr) == word0 && wordAt(sptr + 8) == word1 && wordAt(sptr + 16) == tail;
+        }
+
+        // key>24
+        final boolean match(long addr, long word0, long word1, long tail, int keylen) {
+            int n = keylen & 0xF8;
+            long sptr = row_addr + STR;
+            if (wordAt(sptr) != word0 || wordAt(sptr + 8) != word1 || wordAt(sptr + n) != tail)
                 return false;
             // this is faster than comparision if key is short
-            long addr = UNSAFE.getLong(row_addr + ADDR);
-            long xsum = UNSAFE.getLong(addr + 8) ^ other_word1;
-            int n = keylen & 0xF8;
+            long xsum = 0;
             for (int i = 16; i < n; i += 8) {
-                xsum |= (UNSAFE.getLong(addr + i) ^ UNSAFE.getLong(other_addr + i));
+                xsum |= wordAt(sptr + i) ^ UNSAFE.getLong(addr + i);
             }
             return xsum == 0;
-        }
-
-        final boolean match(long other_addr, long other_word0, long other_word1, long other_tail) {
-            if (tail() != other_tail || word0() != other_word0)
-                return false;
-            long addr = UNSAFE.getLong(row_addr + ADDR);
-            return UNSAFE.getLong(addr + 8) == other_word1;
         }
     }
 
@@ -266,14 +265,11 @@ public class CalculateAverage_abeobk {
     // keylength histogram (%) = [0, 0, 0, 0, 4, 10, 21, 15, 13, 11, 6, 6, 4, 2...
     static final List<Stat> parse(int thread_id, long start, long end) {
         int cls = 0;
-        int w1 = 0;
-        int w2 = 0;
         long addr = start;
         Table table = new Table();
         // parse loop
         while (addr < end) {
             long row_addr = addr;
-
             long word0 = UNSAFE.getLong(addr);
             long semipos_code = getSemiPosCode(word0);
 
@@ -290,11 +286,11 @@ public class CalculateAverage_abeobk {
                 table.setRow(mix(tail));
 
                 while (true) {
-                    if (table.rowIsEmpty()) {
-                        table.put(row_addr, tail, val);
+                    if (table.crrRowEmpty()) {
+                        table.put(row_addr, val, semi_pos);
                         break;
                     }
-                    if (table.tail() == tail) {
+                    if (table.match(tail)) {
                         table.add(val);
                         break;
                     }
@@ -321,11 +317,11 @@ public class CalculateAverage_abeobk {
                 table.setRow(mix(word0 ^ tail));
 
                 while (true) {
-                    if (table.rowIsEmpty()) {
-                        table.put(row_addr, word0, tail, val);
+                    if (table.crrRowEmpty()) {
+                        table.put(row_addr, val, 8 + semi_pos);
                         break;
                     }
-                    if (table.word0() == word0 && table.tail() == tail) {
+                    if (table.match(word0, tail)) {
                         table.add(val);
                         break;
                     }
@@ -336,10 +332,11 @@ public class CalculateAverage_abeobk {
                 continue;
             }
 
-            addr += 8;
             long hash = word0 ^ word1;
+            addr += 8;
             long word = UNSAFE.getLong(addr);
             semipos_code = getSemiPosCode(word);
+
             if (semipos_code != 0) {
                 int semi_pos = Long.numberOfTrailingZeros(semipos_code) >>> 3;
                 addr += semi_pos + 1;
@@ -351,13 +348,12 @@ public class CalculateAverage_abeobk {
                 short val = parseNum(num_word, dot_pos);
                 table.setRow(mix(hash ^ tail));
 
-                w1++;
                 while (true) {
-                    if (table.rowIsEmpty()) {
-                        table.put(row_addr, word0, tail, val);
+                    if (table.crrRowEmpty()) {
+                        table.put(row_addr, val, 16 + semi_pos);
                         break;
                     }
-                    if (table.match(row_addr, word0, word1, tail)) {
+                    if (table.match(word0, word1, tail)) {
                         table.add(val);
                         break;
                     }
@@ -386,10 +382,9 @@ public class CalculateAverage_abeobk {
             short val = parseNum(num_word, dot_pos);
             table.setRow(mix(hash ^ tail));
 
-            w2++;
             while (true) {
-                if (table.rowIsEmpty()) {
-                    table.put(row_addr, word0, tail, val);
+                if (table.crrRowEmpty()) {
+                    table.put(row_addr, val, keylen);
                     break;
                 }
                 if (table.match(row_addr, word0, word1, tail, keylen)) {
@@ -403,7 +398,7 @@ public class CalculateAverage_abeobk {
         }
 
         if (SHOW_ANALYSIS) {
-            debug("Thread %d collision = %d, w1=%d, w2=%d", thread_id, cls, w1, w2);
+            debug("Thread %d collision = %d", thread_id, cls);
         }
         List<Stat> stats = new ArrayList<>(MAX_STATIONS);
 
