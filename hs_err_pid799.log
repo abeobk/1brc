@@ -1,0 +1,137 @@
+#
+# A fatal error has been detected by the Java Runtime Environment:
+#
+#  SIGSEGV (0xb) at pc=0x00007ff7732d8ecf, pid=799, tid=847
+#
+# JRE version: Java(TM) SE Runtime Environment Oracle GraalVM 21.0.2+13.1 (21.0.2+13) (build 21.0.2+13-LTS-jvmci-23.1-b30)
+# Java VM: Java HotSpot(TM) 64-Bit Server VM Oracle GraalVM 21.0.2+13.1 (21.0.2+13-LTS-jvmci-23.1-b30, mixed mode, sharing, tiered, jvmci, jvmci compiler, compressed oops, compressed class ptrs, g1 gc, linux-amd64)
+# Problematic frame:
+# J 543 c1 sun.misc.Unsafe.getByte(J)B jdk.unsupported@21.0.2 (8 bytes) @ 0x00007ff7732d8ecf [0x00007ff7732d8e20+0x00000000000000af]
+#
+# Core dump will be written. Default location: Core dumps may be processed with "/usr/share/apport/apport -p%p -s%s -c%c -d%d -P%P -u%u -g%g -- %E" (or dumping to /home/atmc/projects/java/1brc/core.799)
+#
+# If you would like to submit a bug report, please visit:
+#   https://bugreport.java.com/bugreport/crash.jsp
+#
+
+---------------  S U M M A R Y ------------
+
+Command Line: -XX:ThreadPriorityPolicy=1 -XX:+UnlockExperimentalVMOptions -XX:+EnableJVMCIProduct -XX:-UnlockExperimentalVMOptions -javaagent:/home/atmc/.jbang/cache/urls/8973817683a5f7eb03077bb812b49bf64b6d296ee3986c4208a97cde9850027f/ap-loader-all.jar=start,event=cpu,file=../profile_abeobk.html --enable-preview dev.morling.onebrc.CalculateAverage_abeobk --worker
+
+Host: Intel(R) Core(TM) i9-10980XE CPU @ 3.00GHz, 36 cores, 125G, Ubuntu 18.04.6 LTS
+Time: Thu Jan 25 16:47:09 2024 KST elapsed time: 1.606680 seconds (0d 0h 0m 1s)
+
+---------------  T H R E A D  ---------------
+
+Current thread (0x00007fee9c00a030):  JavaThread "ForkJoinPool.commonPool-worker-6" daemon [_thread_in_Java, id=847, stack(0x00007ff6ea50d000,0x00007ff6ea60e000) (1028K)]
+
+Stack: [0x00007ff6ea50d000,0x00007ff6ea60e000],  sp=0x00007ff6ea60c140,  free space=1020k
+Native frames: (J=compiled Java code, j=interpreted, Vv=VM code, C=native code)
+J 543 c1 sun.misc.Unsafe.getByte(J)B jdk.unsupported@21.0.2 (8 bytes) @ 0x00007ff7732d8ecf [0x00007ff7732d8e20+0x00000000000000af]
+j  dev.morling.onebrc.CalculateAverage_abeobk$Table.match(JII)Z+99
+j  dev.morling.onebrc.CalculateAverage_abeobk.parse(IJJ)Ljava/util/List;+227
+j  dev.morling.onebrc.CalculateAverage_abeobk.lambda$main$1([JI)Ljava/util/List;+9
+j  dev.morling.onebrc.CalculateAverage_abeobk$$Lambda+0x00007ff6f000b000.apply(I)Ljava/lang/Object;+5
+j  java.util.stream.IntPipeline$1$1.accept(I)V+12 java.base@21.0.2
+j  java.util.stream.Streams$RangeIntSpliterator.forEachRemaining(Ljava/util/function/IntConsumer;)V+44 java.base@21.0.2
+j  java.util.Spliterator$OfInt.forEachRemaining(Ljava/util/function/Consumer;)V+12 java.base@21.0.2
+j  java.util.stream.AbstractPipeline.copyInto(Ljava/util/stream/Sink;Ljava/util/Spliterator;)V+32 java.base@21.0.2
+j  java.util.stream.AbstractPipeline.wrapAndCopyInto(Ljava/util/stream/Sink;Ljava/util/Spliterator;)Ljava/util/stream/Sink;+13 java.base@21.0.2
+j  java.util.stream.Nodes$SizedCollectorTask.compute()V+123 java.base@21.0.2
+j  java.util.concurrent.CountedCompleter.exec()Z+1 java.base@21.0.2
+j  java.util.concurrent.ForkJoinTask.doExec()I+10 java.base@21.0.2
+j  java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(Ljava/util/concurrent/ForkJoinTask;Ljava/util/concurrent/ForkJoinPool$WorkQueue;)V+19 java.base@21.0.2
+j  java.util.concurrent.ForkJoinPool.scan(Ljava/util/concurrent/ForkJoinPool$WorkQueue;II)I+211 java.base@21.0.2
+j  java.util.concurrent.ForkJoinPool.runWorker(Ljava/util/concurrent/ForkJoinPool$WorkQueue;)V+35 java.base@21.0.2
+j  java.util.concurrent.ForkJoinWorkerThread.run()V+31 java.base@21.0.2
+v  ~StubRoutines::call_stub 0x00007ff77a486cc6
+V  [libjvm.so+0x8e2c35]  JavaCalls::call_helper(JavaValue*, methodHandle const&, JavaCallArguments*, JavaThread*)+0x2e5
+V  [libjvm.so+0x8e45b2]  JavaCalls::call_virtual(JavaValue*, Handle, Klass*, Symbol*, Symbol*, JavaThread*)+0x1d2
+V  [libjvm.so+0x9b243e]  thread_entry(JavaThread*, JavaThread*)+0x8e
+V  [libjvm.so+0x8f8dd8]  JavaThread::thread_main_inner() [clone .part.0]+0xb8
+V  [libjvm.so+0xea7c18]  Thread::call_run()+0xa8
+V  [libjvm.so+0xccd6ca]  thread_native_entry(Thread*)+0xda
+
+siginfo: si_signo: 11 (SIGSEGV), si_code: 1 (SEGV_MAPERR), si_addr: 0x0000000000000000
+
+Registers:
+RAX=0x0000000000000000, RBX=0x00007ff6eb1b6648, RCX=0x000000011dbc0b40, RDX=0x0000000000000000
+RSP=0x00007ff6ea60c140, RBP=0x00007ff6ea60c200, RSI=0x000000000000000e, RDI=0x0000000000000024
+R8 =0x00007ff6eb1b6648, R9 =0x0000000000000004, R10=0x00007ff7945fdba0, R11=0x00007ff7732d8e40
+R12=0x0000000000000000, R13=0x00007ff6ea60c1a0, R14=0x00007ff6ea60c260, R15=0x00007fee9c00a030
+RIP=0x00007ff7732d8ecf, EFLAGS=0x0000000000010202, CSGSFS=0x002b000000000033, ERR=0x0000000000000004
+  TRAPNO=0x000000000000000e
+
+
+Register to memory mapping:
+
+RAX=0x0 is null
+RBX={method} {0x00007ff6eb1b6648} 'getByte' '(J)B' in 'sun/misc/Unsafe'
+RCX=0x000000011dbc0b40 is an oop: sun.misc.Unsafe 
+{0x000000011dbc0b40} - klass: 'sun/misc/Unsafe'
+ - ---- fields (total size 2 words):
+RDX=0x0 is null
+RSP=0x00007ff6ea60c140 is pointing into the stack for thread: 0x00007fee9c00a030
+RBP=0x00007ff6ea60c200 is pointing into the stack for thread: 0x00007fee9c00a030
+RSI=0x000000000000000e is an unknown value
+RDI=0x0000000000000024 is an unknown value
+R8 ={method} {0x00007ff6eb1b6648} 'getByte' '(J)B' in 'sun/misc/Unsafe'
+R9 =0x0000000000000004 is an unknown value
+R10=0x00007ff7945fdba0: <offset 0x000000000146bba0> in /home/atmc/.sdkman/candidates/java/21.0.2-graal/lib/server/libjvm.so at 0x00007ff793192000
+R11=0x00007ff7732d8e40 is at entry_point+32 in (nmethod*)0x00007ff7732d8c90
+Compiled method (c1)    1612  543       3       sun.misc.Unsafe::getByte (8 bytes)
+ total in heap  [0x00007ff7732d8c90,0x00007ff7732d9048] = 952
+ relocation     [0x00007ff7732d8de8,0x00007ff7732d8e20] = 56
+ main code      [0x00007ff7732d8e20,0x00007ff7732d8f70] = 336
+ stub code      [0x00007ff7732d8f70,0x00007ff7732d8fa0] = 48
+ oops           [0x00007ff7732d8fa0,0x00007ff7732d8fa8] = 8
+ metadata       [0x00007ff7732d8fa8,0x00007ff7732d8fc0] = 24
+ scopes data    [0x00007ff7732d8fc0,0x00007ff7732d8ff0] = 48
+ scopes pcs     [0x00007ff7732d8ff0,0x00007ff7732d9040] = 80
+ dependencies   [0x00007ff7732d9040,0x00007ff7732d9048] = 8
+R12=0x0 is null
+R13=0x00007ff6ea60c1a0 is pointing into the stack for thread: 0x00007fee9c00a030
+R14=0x00007ff6ea60c260 is pointing into the stack for thread: 0x00007fee9c00a030
+R15=0x00007fee9c00a030 is a thread
+
+Top of Stack: (sp=0x00007ff6ea60c140)
+0x00007ff6ea60c140:   0000000000000000 00007ff6eb40fc23
+0x00007ff6ea60c150:   00007ff6ea60c260 00007fee9c00a030
+0x00007ff6ea60c160:   00007ff6ea60c180 00007ff793a6d595
+0x00007ff6ea60c170:   00000000000000b6 0000000000000000
+0x00007ff6ea60c180:   00007ff6ea60c200 00007ff77a49edd5
+0x00007ff6ea60c190:   00007ff6ea60c200 00007ff77a48e17a
+0x00007ff6ea60c1a0:   0000000000000000 0000000000000000
+0x00007ff6ea60c1b0:   000000011dbc0b40 00007ff6ea60c1b8
+0x00007ff6ea60c1c0:   00007ff6eb40fc23 000000000000000c
+0x00007ff6ea60c1d0:   00007ff6eb426238 00007ff6eb427948
+0x00007ff6ea60c1e0:   000000011dbd79c0 00007ff6eb426138
+0x00007ff6ea60c1f0:   00007ff6ea60c1a0 00007ff6ea60c240
+0x00007ff6ea60c200:   00007ff6ea60c2b8 00007ff77a48e17a
+0x00007ff6ea60c210:   0000000000000000 0000000000000000
+0x00007ff6ea60c220:   0000000000000000 0000000000000000
+0x00007ff6ea60c230:   0000000000000000 0000000000000000
+0x00007ff6ea60c240:   deaddeaf00000006 deaddeaf6970614e
+0x00007ff6ea60c250:   00007fec77e21baf 00007fec77e21baf
+0x00007ff6ea60c260:   000000011c99aea8 000000011c99aea8
+0x00007ff6ea60c270:   00007ff6ea60c270 00007ff6eb40ef53
+0x00007ff6ea60c280:   000000000000001b 00007ff6eb424000
+0x00007ff6ea60c290:   00007ff6eb422658 000000011dbbead0
+0x00007ff6ea60c2a0:   00007ff6eb40f0c0 00007ff6ea60c248
+0x00007ff6ea60c2b0:   00007ff6ea60c370 00007ff6ea60c3e0
+0x00007ff6ea60c2c0:   00007ff77a48e1c4 deaddeaf6970614e
+0x00007ff6ea60c2d0:   deaddeaf000000dc 0000000000000000
+0x00007ff6ea60c2e0:   0000000000000000 0000000000000000
+0x00007ff6ea60c2f0:   0000000000000000 0000000000000000
+0x00007ff6ea60c300:   deaddeaf00000006 0000000000000000
+0x00007ff6ea60c310:   0000000000000000 0000000000000000
+0x00007ff6ea60c320:   0000000000000000 0000000000000000
+0x00007ff6ea60c330:   00007fec77e21baf 00007fec77e21baf 
+
+Instructions: (pc=0x00007ff7732d8ecf)
+0x00007ff7732d8dcf:   00 ff ff ff ff ff ff ff ff 03 02 00 00 00 00 00
+0x00007ff7732d8ddf:   00 00 00 00 00 00 00 00 00 14 30 22 31 05 60 27
+0x00007ff7732d8def:   08 0a 60 12 60 27 08 1f 58 0e 60 17 31 0a 60 17
+0x00007ff7732d8dff:   31 4d 78 07 40 11 31 27 31 07 00 00 31 03 7c 1d
+0x00007ff7732d8e0f:   94 92 b2 f7 7f 05 38 0e 31 01 7c 9e ff 06 48 0c
+0x00007ff7732d8e1f:   31 44 8b 56 08
