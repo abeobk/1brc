@@ -54,7 +54,6 @@ public class CalculateAverage_abeobk {
             0xffffffffffffffL,
             0xffffffffffffffffL, };
     private static final long[] MASK2 = new long[]{ 0, 0, 0, 0, 0, 0, 0, 0, 0xffffffffffffffffL };
-    private static final int[] MASK2_INT = new int[]{ 0, 0, 0, 0, 0, 0, 0, 0, 0xffffffff };
 
     private static AtomicInteger chunk_id = new AtomicInteger(0);
     private static AtomicReference<Node[]> mapref = new AtomicReference<>(null);
@@ -205,7 +204,7 @@ public class CalculateAverage_abeobk {
             hash = h;
             min = 999;
             max = -999;
-            keylen = kl;
+            keylen = kl - 1;
         }
 
         Node(long a, long w0, long h, int kl) {
@@ -214,7 +213,7 @@ public class CalculateAverage_abeobk {
             hash = h;
             min = 999;
             max = -999;
-            keylen = kl;
+            keylen = kl - 1;
         }
 
         final void add(long val) {
@@ -435,18 +434,19 @@ public class CalculateAverage_abeobk {
             if ((semicode0 | semicode1) != 0) {
                 int semi_pos0 = Long.numberOfTrailingZeros(semicode0) >>> 3;
                 int semi_pos1 = Long.numberOfTrailingZeros(semicode1) >>> 3;
+                long mask2 = MASK2[semi_pos0];
                 long tail0 = word0 & MASK1[semi_pos0];
-                long tail1 = word1 & MASK1[semi_pos1] & MASK2[semi_pos0];
+                long tail1 = word1 & MASK1[semi_pos1] & mask2;
                 long hash = mix(tail0 ^ tail1);
                 int bucket = (int) (hash & BUCKET_MASK);
-                int keylen = (semi_pos0 + (semi_pos1 & MASK2_INT[semi_pos0]));
-                skip(keylen + 1);
+                long keylen = (semi_pos0 + (semi_pos1 & mask2)) + 1;
+                skip(keylen);
                 while (true) {
                     Node node = map[bucket];
                     if (node == null) {
-                        return (map[bucket] = new Node(row_addr, hash, keylen));
+                        return (map[bucket] = new Node(row_addr, tail0, hash, (int) keylen));
                     }
-                    if (node.hash == hash) {
+                    if (node.word0 == tail0 && node.hash == hash) {
                         return node;
                     }
                     bucket++;
@@ -465,9 +465,8 @@ public class CalculateAverage_abeobk {
             }
 
             int semi_pos = Long.numberOfTrailingZeros(semicode0) >>> 3;
-            skip(semi_pos);
+            skip(semi_pos + 1);
             long keylen = addr - row_addr;
-            skip(1);
             long tail = hash ^ (word & MASK1[semi_pos]);
             hash = mix(tail);
             int bucket = (int) (hash & BUCKET_MASK);
