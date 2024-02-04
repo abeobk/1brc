@@ -43,7 +43,7 @@ public class CalculateAverage_abeobk {
     private static final int MAX_STATIONS = 10000;
     private static final long CHUNK_SZ = 1 << 22;
     private static final Unsafe UNSAFE = initUnsafe();
-    private static final long[] HASH_MASKS = new long[]{
+    private static final long[] MASK1 = new long[]{
             0x0L,
             0xffL,
             0xffffL,
@@ -53,6 +53,8 @@ public class CalculateAverage_abeobk {
             0xffffffffffffL,
             0xffffffffffffffL,
             0xffffffffffffffffL, };
+    private static final long[] MASK2 = new long[]{ 0, 0, 0, 0, 0, 0, 0, 0, 0xffffffffffffffffL };
+    private static final int[] MASK2_INT = new int[]{ 0, 0, 0, 0, 0, 0, 0, 0, 0xffffffff };
 
     private static AtomicInteger chunk_id = new AtomicInteger(0);
     private static AtomicReference<Node[]> mapref = new AtomicReference<>(null);
@@ -198,26 +200,11 @@ public class CalculateAverage_abeobk {
             return new String(sbuf, 0, (int) keylen, StandardCharsets.UTF_8);
         }
 
-        Node(long a, long h, int kl, long v) {
-            addr = a;
-            min = max = v;
-            keylen = kl;
-            hash = h;
-        }
-
         Node(long a, long h, int kl) {
             addr = a;
             hash = h;
             min = 999;
             max = -999;
-            keylen = kl;
-        }
-
-        Node(long a, long w0, long h, int kl, long v) {
-            addr = a;
-            word0 = w0;
-            hash = h;
-            min = max = v;
             keylen = kl;
         }
 
@@ -315,12 +302,21 @@ public class CalculateAverage_abeobk {
                     long w0 = p0.word();
                     long w1 = p1.word();
                     long w2 = p2.word();
+                    long w01 = p0.word1();
+                    long w11 = p1.word1();
+                    long w21 = p2.word1();
+
                     long sc0 = getSemiCode(w0);
                     long sc1 = getSemiCode(w1);
                     long sc2 = getSemiCode(w2);
-                    Node n0 = p0.key(w0, sc0);
-                    Node n1 = p1.key(w1, sc1);
-                    Node n2 = p2.key(w2, sc2);
+                    long sc01 = getSemiCode(w01);
+                    long sc11 = getSemiCode(w11);
+                    long sc21 = getSemiCode(w21);
+
+                    Node n0 = p0.key(w0, sc0, w01, sc01);
+                    Node n1 = p1.key(w1, sc1, w11, sc11);
+                    Node n2 = p2.key(w2, sc2, w21, sc21);
+
                     long v0 = p0.val();
                     long v1 = p1.val();
                     long v2 = p2.val();
@@ -332,21 +328,27 @@ public class CalculateAverage_abeobk {
                 while (p0.ok()) {
                     long w = p0.word();
                     long sc = getSemiCode(w);
-                    Node n = p0.key(w, sc);
+                    long w1 = p0.word1();
+                    long sc1 = getSemiCode(w1);
+                    Node n = p0.key(w, sc, w1, sc1);
                     long v = p0.val();
                     n.add(v);
                 }
                 while (p1.ok()) {
                     long w = p1.word();
                     long sc = getSemiCode(w);
-                    Node n = p1.key(w, sc);
+                    long w1 = p1.word1();
+                    long sc1 = getSemiCode(w1);
+                    Node n = p1.key(w, sc, w1, sc1);
                     long v = p1.val();
                     n.add(v);
                 }
                 while (p2.ok()) {
                     long w = p2.word();
                     long sc = getSemiCode(w);
-                    Node n = p2.key(w, sc);
+                    long w1 = p2.word1();
+                    long sc1 = getSemiCode(w1);
+                    Node n = p2.key(w, sc, w1, sc1);
                     long v = p2.val();
                     n.add(v);
                 }
@@ -398,6 +400,10 @@ public class CalculateAverage_abeobk {
             return UNSAFE.getLong(addr);
         }
 
+        final long word1() {
+            return UNSAFE.getLong(addr + 8);
+        }
+
         final void skip(int n) {
             addr += n;
         }
@@ -423,19 +429,22 @@ public class CalculateAverage_abeobk {
         // save as much slow memory access as possible
         // about 50% key < 8chars, 25% key bettween 8-10 chars
         // keylength histogram (%) = [0, 0, 0, 0, 4, 10, 21, 15, 13, 11, 6, 6, 4, 2...
-        final Node key(long word0, long semipos_code) {
+        final Node key(long word0, long semicode0, long word1, long semicode1) {
             long row_addr = addr;
-            // about 50% chance key < 8 chars
-            if (semipos_code != 0) {
-                int semi_pos = Long.numberOfTrailingZeros(semipos_code) >>> 3;
-                skip(semi_pos + 1);
-                long tail = word0 & HASH_MASKS[semi_pos];
-                long hash = mix(tail);
+            // about 93% chance key < 16 chars
+            if ((semicode0 | semicode1) != 0) {
+                int semi_pos0 = Long.numberOfTrailingZeros(semicode0) >>> 3;
+                int semi_pos1 = Long.numberOfTrailingZeros(semicode1) >>> 3;
+                long tail0 = word0 & MASK1[semi_pos0];
+                long tail1 = word1 & MASK1[semi_pos1] & MASK2[semi_pos0];
+                long hash = mix(tail0 ^ tail1);
                 int bucket = (int) (hash & BUCKET_MASK);
+                int keylen = (semi_pos0 + (semi_pos1 & MASK2_INT[semi_pos0]));
+                skip(keylen + 1);
                 while (true) {
                     Node node = map[bucket];
                     if (node == null) {
-                        return (map[bucket] = new Node(row_addr, hash, semi_pos));
+                        return (map[bucket] = new Node(row_addr, hash, keylen));
                     }
                     if (node.hash == hash) {
                         return node;
@@ -444,42 +453,22 @@ public class CalculateAverage_abeobk {
                 }
             }
 
-            skip(8);
+            skip(16);
+            long hash = word0 ^ word1;
             long word = UNSAFE.getLong(addr);
-            semipos_code = getSemiCode(word);
-            // 43% chance
-            if (semipos_code != 0) {
-                int semi_pos = Long.numberOfTrailingZeros(semipos_code) >>> 3;
-                skip(semi_pos + 1);
-                long tail = word0 ^ (word & HASH_MASKS[semi_pos]);
-                long hash = mix(tail);
-                int bucket = (int) (hash & BUCKET_MASK);
-                while (true) {
-                    Node node = map[bucket];
-                    if (node == null) {
-                        return (map[bucket] = new Node(row_addr, word0, hash, semi_pos + 8));
-                    }
-                    if (node.word0 == word0 && node.hash == hash) {
-                        return node;
-                    }
-                    bucket++;
-                }
-            }
-
-            // why not going for more? tested, slower
-            long hash = word0;
-            while (semipos_code == 0) {
+            semicode0 = getSemiCode(word);
+            while (semicode0 == 0) {
                 hash ^= word;
                 skip(8);
                 word = UNSAFE.getLong(addr);
-                semipos_code = getSemiCode(word);
+                semicode0 = getSemiCode(word);
             }
 
-            int semi_pos = Long.numberOfTrailingZeros(semipos_code) >>> 3;
+            int semi_pos = Long.numberOfTrailingZeros(semicode0) >>> 3;
             skip(semi_pos);
             long keylen = addr - row_addr;
             skip(1);
-            long tail = hash ^ (word & HASH_MASKS[semi_pos]);
+            long tail = hash ^ (word & MASK1[semi_pos]);
             hash = mix(tail);
             int bucket = (int) (hash & BUCKET_MASK);
 
